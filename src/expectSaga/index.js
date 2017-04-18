@@ -72,6 +72,7 @@ export default function expectSaga(generator: Function, ...sagaArgs: mixed[]): E
   };
 
   const expectations = [];
+  const stateExpectations = [];
   const queuedActions = [];
   const listeners = [];
   const forkedTasks = [];
@@ -435,6 +436,7 @@ export default function expectSaga(generator: Function, ...sagaArgs: mixed[]): E
     withReducer,
     provide,
     returns,
+    expectState,
     dispatch: apiDispatch,
     delay: apiDelay,
 
@@ -485,6 +487,12 @@ export default function expectSaga(generator: Function, ...sagaArgs: mixed[]): E
 
   api.spawn.like = createEffectTester('spawn', FORK, effects.spawn, asEffect.fork, true);
   api.spawn.fn = fn => api.spawn.like({ fn });
+
+  function checkStateExpectations(): void {
+    stateExpectations.forEach(expectation => {
+      expectation(io.getState());
+    });
+  }
 
   function checkExpectations(): void {
     expectations.forEach(({
@@ -582,6 +590,7 @@ ${serializedExpected}
     mainTask = runSaga(sagaWrapper(iterator, refineYieldedValue, setReturnValue), io);
 
     mainTaskPromise = mainTask.done
+      .then(checkStateExpectations)
       .then(checkExpectations)
       // Pass along the error instead of rethrowing or allowing to
       // bubble up to avoid PromiseRejectionHandledWarning
@@ -629,6 +638,11 @@ ${serializedExpected}
   function returns(value: any): ExpectApi {
     expectReturnValue = true;
     expectedReturnValue = value;
+    return api;
+  }
+
+  function expectState(expectationFn: Function): ExpectApi {
+    stateExpectations.push(expectationFn);
     return api;
   }
 
